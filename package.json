@@ -1,0 +1,48 @@
+{
+  "name": "willys-cli",
+  "version": "1.0.0",
+  "description": "TypeScript library and CLI for the Willys grocery store API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "willys-cli": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!dist/test.*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "start": "tsx src/cli.ts",
+    "test": "tsx src/test.ts"
+  },
+  "keywords": [
+    "willys",
+    "grocery",
+    "sweden",
+    "shopping",
+    "cli"
+  ],
+  "author": "Erik Hellman",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pansen/willys-agent"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
