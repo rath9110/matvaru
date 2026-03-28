@@ -16,13 +16,16 @@
   },
   "files": [
     "dist",
-    "!dist/test.*"
+    "!dist/**/*.test.*"
   ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "start": "tsx src/cli.ts",
-    "test": "tsx src/test.ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run src/crypto.test.ts",
+    "test:integration": "vitest run src/integration.test.ts"
   },
   "keywords": [
     "willys",
@@ -34,7 +37,7 @@
   "author": "Erik Hellman",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pansen/willys-agent"
+    "url": "https://github.com/ErikHellman/willys-agent"
   },
   "license": "ISC",
   "dependencies": {
@@ -43,6 +46,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   }
 }
