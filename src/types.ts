@@ -53,16 +53,25 @@ export interface MatchedItem {
   query: string;
   product: NormalizedProduct;
   quantity: number;
-  /** Total price for this line (product.price * quantity) */
+  /** Best available price considering active promotions */
+  effectivePrice: number;
+  /** Total price for this line (effectivePrice * quantity) */
   lineTotal: number;
+}
+
+export interface UnmatchedItem {
+  query: string;
+  quantity: number;
 }
 
 export interface BasketResult {
   store: StoreName;
-  items: MatchedItem[];
-  /** Sum of all lineTotal values */
+  matched: MatchedItem[];
+  /** Queries that returned no in-stock results at this store */
+  unmatched: UnmatchedItem[];
+  /** Sum of all lineTotal values for matched items */
   totalPrice: number;
-  /** How much cheaper/more expensive vs the most expensive single-store option */
+  /** How much cheaper than the most expensive store for the same matched items. Negative = more expensive. */
   savingsVsWorst: number;
 }
 

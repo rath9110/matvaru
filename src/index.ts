@@ -2,6 +2,8 @@ export { WillysApi } from "./willys-api.js";
 export { encryptCredential } from "./crypto.js";
 export type { StoreProvider, StoreCredentials } from "./providers/index.js";
 export { WillysProvider, IcaProvider, CoopProvider, LidlProvider } from "./providers/index.js";
+export { findCheapestBasket } from "./basket.js";
+export type { BasketOptions, BasketComparison } from "./basket.js";
 export type {
   // Normalized cross-store types
   StoreName,
