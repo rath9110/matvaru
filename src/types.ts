@@ -1,3 +1,73 @@
+// ─── Store-agnostic normalized types ─────────────────────────────────────────
+
+export type StoreName = "willys" | "ica" | "lidl" | "coop";
+
+export interface NormalizedPromotion {
+  description: string;
+  /** Price after discount, null if unknown */
+  discountedPrice: number | null;
+}
+
+export interface NormalizedProduct {
+  /** Store-specific product identifier */
+  id: string;
+  name: string;
+  brand: string;
+  /** Regular price in SEK */
+  price: number;
+  /** Price per unit of measure (e.g. per kg, per liter) */
+  comparePrice: number;
+  /** Unit for comparePrice, e.g. "kg", "l", "st" */
+  comparePriceUnit: string;
+  /** Human-readable volume/weight, e.g. "1 l", "500 g" */
+  volume: string;
+  imageUrl: string | null;
+  inStock: boolean;
+  promotions: NormalizedPromotion[];
+  store: StoreName;
+}
+
+export interface NormalizedSearchResult {
+  products: NormalizedProduct[];
+  totalResults: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface NormalizedCategory {
+  id: string;
+  name: string;
+  path: string;
+  children: NormalizedCategory[];
+}
+
+// ─── Basket comparison types ──────────────────────────────────────────────────
+
+export interface BasketItem {
+  /** Search query, e.g. "mjölk 3%", "pasta fusilli" */
+  query: string;
+  quantity: number;
+}
+
+export interface MatchedItem {
+  query: string;
+  product: NormalizedProduct;
+  quantity: number;
+  /** Total price for this line (product.price * quantity) */
+  lineTotal: number;
+}
+
+export interface BasketResult {
+  store: StoreName;
+  items: MatchedItem[];
+  /** Sum of all lineTotal values */
+  totalPrice: number;
+  /** How much cheaper/more expensive vs the most expensive single-store option */
+  savingsVsWorst: number;
+}
+
+// ─── Willys-specific types ────────────────────────────────────────────────────
+
 export interface Customer {
   uid: string;
   name: string;
