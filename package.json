@@ -1,7 +1,7 @@
 {
-  "name": "willys-cli",
-  "version": "1.0.3",
-  "description": "TypeScript library and CLI for the Willys grocery store API",
+  "name": "matvaru",
+  "version": "2.0.0",
+  "description": "Compare grocery prices across Swedish stores (Willys, ICA, Coop, Lidl) to find the cheapest basket",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "willys-cli": "dist/cli.js"
+    "matvaru": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -30,9 +30,13 @@
   },
   "keywords": [
     "willys",
+    "ica",
+    "coop",
+    "lidl",
     "grocery",
     "sweden",
     "shopping",
+    "price-comparison",
     "cli"
   ],
   "author": "Erik Hellman",

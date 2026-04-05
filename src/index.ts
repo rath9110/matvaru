@@ -13,6 +13,7 @@ export type {
   NormalizedCategory,
   BasketItem,
   MatchedItem,
+  UnmatchedItem,
   BasketResult,
   // Willys-specific types
   Customer,

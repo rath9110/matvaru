@@ -1,92 +1,107 @@
 ---
-name: willys-cli
-description: Manages grocery shopping at Willys.se. Search for products, browse categories, and manage a shopping cart. Use when the user wants to find groceries, add/remove items from their Willys cart, or view their cart.
-argument-hint: "[search query or command]"
-allowed-tools: Bash(willys-cli *)
+name: matvaru
+description: Compares grocery prices across Swedish stores (Willys, ICA, Coop, Lidl) to find the cheapest basket. Use when the user wants to compare prices, find the best deal on a shopping list, see weekly offers, or manage their Willys cart.
+argument-hint: "[basket \"vara:antal, ...\" | search <sökord> | deals]"
+allowed-tools: Bash(matvaru *)
 ---
 
-# Willys Grocery CLI
+# Matvaru — Swedish Grocery Price Comparison CLI
 
-A CLI tool for shopping at Willys.se (Swedish grocery store).
+Compares prices across Willys, ICA, Coop, and Lidl Sweden to find the cheapest
+basket of goods. Also supports Willys cart management.
 
-Credentials are read from WILLYS_USERNAME and WILLYS_PASSWORD environment variables,
-or from a .env file in the current directory. They can also be passed with -u and -p flags.
+Credentials are read from environment variables or a `.env` file:
+- `WILLYS_USERNAME`, `WILLYS_PASSWORD` — required for Willys (search + cart)
+- `ICA_STORE_ID` — optional ICA store override (default: 1300, ICA Maxi Online)
+- `COOP_STORE_ID` — optional Coop store override (default: 5080, Coop Online)
+- ICA, Coop, and Lidl do not require login for product search.
 
 ## Commands
 
-### Search for products
+### Compare prices for a shopping basket
+
+The primary use case. Searches all stores and returns a ranked price comparison.
 
 ```bash
-# Search for products (default 10 results)
-willys-cli search mjölk
+# Inline list: "item:quantity, item:quantity, ..."
+matvaru basket "mjölk 3%:2, pasta fusilli:1, äpplen:1, smör:1"
 
-# Search with a specific number of results (fetches multiple pages if needed)
-willys-cli search "ekologisk mjölk" 20
+# From a file (one item per line, format: "item:quantity" or just "item")
+matvaru basket --file inköpslista.txt
+
+# Limit to specific stores
+matvaru basket "mjölk:2, bröd:1" --stores willys,ica,coop
 ```
 
-Output includes product name, brand, volume, price, compare price, and product code.
+Output shows:
+- Each store ranked cheapest first with a total price
+- Per-item match with regular price, sale price (if active), and line total
+- Items the store couldn't find marked with ✗
+- Best single store that covers the full list
+- Theoretical minimum price by mixing stores
 
-### Browse categories
+### Search for a product across stores
 
 ```bash
-# List all top-level categories (with 2 levels of subcategories)
-willys-cli categories
+# Search all stores
+matvaru search "oatly havregrädde"
 
-# Browse products in a specific category
-willys-cli browse frukt-och-gront/frukt/citrusfrukt
+# Search specific stores with more results
+matvaru search "pasta" --stores willys,ica --count 20
 ```
 
-Category paths use the URL-style paths shown in the categories output (e.g. `kott-chark-och-fagel/korv`).
-
-### Cart operations
+### View weekly offers / deals
 
 ```bash
-# Show current cart
-willys-cli cart
-
-# Add a product (product code from search results, optional quantity defaults to 1)
-willys-cli add 101233933_ST 2
-
-# Remove a product
-willys-cli remove 101233933_ST
-
-# Clear entire cart
-willys-cli clear
+# Show current deals (Lidl weekly offers, Willys promotions if available)
+matvaru deals
+matvaru deals --stores lidl,willys
 ```
 
-Cart-modifying operations (add, remove, clear) print the updated cart after each change.
-
-### Batch operations from CSV file
+### Willys cart management (requires WILLYS_USERNAME/WILLYS_PASSWORD)
 
 ```bash
-willys-cli -i shopping-list.csv
+matvaru cart                          # show cart
+matvaru add 101233933_ST 2            # add product by code
+matvaru remove 101233933_ST           # remove product
+matvaru clear                         # empty cart
+matvaru categories                    # list Willys category tree
+matvaru browse frukt-och-gront/frukt  # browse a Willys category
 ```
 
-CSV format (one operation per line, lines starting with # are ignored):
+## Shopping list file format
+
 ```
-add,101233933_ST,2
-add,101205823_ST,1
-remove,101233933_ST
-cart
-clear
+# Kommentarer ignoreras
+mjölk 3%:2
+pasta fusilli:1
+äpplen
+smör ekologiskt:1
 ```
 
-## Product codes
+Lines without a quantity default to 1.
 
-Product codes look like `101233933_ST` or `100126409_KG`. They are shown in parentheses
-in search and browse output. Always use the exact code from the output.
+## Typical workflows
 
-## Typical workflow
+### Find cheapest full shop
+1. `matvaru basket "mjölk:2, ägg:1, bröd:1, pasta:2, tomater:3"`
+2. Look at the ★ store at the top — that's the cheapest complete basket.
+3. Check "Teoretiskt lägsta pris" to see if splitting across stores saves significantly.
 
-1. Search for a product: `willys-cli search mjölk`
-2. Pick a product code from the results
-3. Add it to cart: `willys-cli add 101233933_ST 2`
-4. Review the cart: `willys-cli cart`
-5. Repeat steps 1-4 until the cart is complete
+### Check if something is on sale
+1. `matvaru search "smör" --stores willys,ica,coop`
+2. Products with 🏷 tags are on promotion. The sale price is shown after →.
+
+### Build and price a Willys cart
+1. `matvaru search mjölk --stores willys` — find the product code
+2. `matvaru add 101233933_ST 2` — add to cart
+3. `matvaru cart` — review
 
 ## Tips
 
-- When the user asks to "add milk", first search for it, present the options, and let them pick before adding.
-- Use `willys-cli categories` to help the user browse when they don't know exactly what they want.
-- Product codes ending in `_ST` are sold per item, `_KG` are sold by weight.
-- Always show the updated cart after modifications so the user can verify.
+- For basket comparisons, use descriptive queries like "ekologisk mjölk 1l" rather
+  than just "mjölk" to get more accurate matches.
+- Lidl only shows products currently on weekly offer — items not on sale won't appear.
+- Product codes (e.g. `101233933_ST`) appear in search output. `_ST` = per item, `_KG` = by weight.
+- `--stores` accepts a comma-separated list: `willys,ica,coop,lidl`
+- When comparing unit prices, look at the kr/kg or kr/l figure rather than pack price.
