@@ -25,7 +25,7 @@
     "start": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run src/crypto.test.ts",
+    "test:unit": "vitest run src/crypto.test.ts src/volume.test.ts",
     "test:integration": "vitest run src/integration.test.ts"
   },
   "keywords": [

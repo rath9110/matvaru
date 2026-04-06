@@ -1,5 +1,4 @@
 import { WillysApi } from "../willys-api.js";
-import { encryptCredential } from "../crypto.js";
 import type {
   NormalizedProduct,
   NormalizedSearchResult,
@@ -38,7 +37,7 @@ function normalizeProduct(p: Product): NormalizedProduct {
   };
 }
 
-function normalizeCategory(c: Category): import("../types.js").NormalizedCategory {
+function normalizeCategory(c: Category): NormalizedCategory {
   return {
     id: c.id,
     name: c.title,
@@ -69,7 +68,7 @@ export class WillysProvider implements StoreProvider {
     };
   }
 
-  async getCategories(): Promise<import("../types.js").NormalizedCategory[]> {
+  async getCategories(): Promise<NormalizedCategory[]> {
     const tree = await this.api.getCategories();
     return [normalizeCategory(tree)];
   }
