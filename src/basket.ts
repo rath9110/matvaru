@@ -1,4 +1,5 @@
 import type { StoreProvider } from "./providers/store-provider.js";
+import { pricePerUnit } from "./volume.js";
 import type {
   BasketItem,
   BasketResult,
@@ -49,11 +50,31 @@ function effectivePrice(product: NormalizedProduct): number {
 }
 
 /**
+ * Compute the best available price-per-canonical-unit for a product.
+ *
+ * Priority order:
+ *   1. Derived from effective price ÷ parsed volume string  (most accurate)
+ *   2. Store-supplied comparePrice (already per-unit but may use varying units)
+ *   3. Effective pack price (last resort — no unit normalisation)
+ */
+function bestPerUnit(product: NormalizedProduct): number {
+  const eff = effectivePrice(product);
+
+  const derived = pricePerUnit(eff, product.volume);
+  if (derived) return derived.value;
+
+  if (product.comparePrice > 0) return product.comparePrice;
+
+  return eff;
+}
+
+/**
  * From a list of candidate products, pick the one that offers the best value
  * for the given query. Selection criteria, in order:
  *   1. Must be in stock.
- *   2. Prefer lowest effective price (sale price if active, otherwise regular).
- *   3. If comparePrice is available on all candidates, prefer lowest per-unit cost.
+ *   2. Prefer lowest price-per-canonical-unit (kr/l, kr/kg, or kr/st) so that
+ *      pack-size differences don't skew the comparison (e.g. 1.5 l vs 1 l milk).
+ *   3. Fall back to lowest effective pack price when unit normalization fails.
  */
 function pickBestCandidate(
   candidates: NormalizedProduct[],
@@ -62,22 +83,9 @@ function pickBestCandidate(
   if (inStock.length === 0) return undefined;
 
   return inStock.reduce((best, current) => {
-    const bestEff = effectivePrice(best);
-    const currEff = effectivePrice(current);
-
-    if (currEff < bestEff) return current;
-    if (currEff > bestEff) return best;
-
-    // Tie-break by comparePrice when both are non-zero and share the same unit
-    if (
-      current.comparePrice > 0 &&
-      best.comparePrice > 0 &&
-      current.comparePriceUnit === best.comparePriceUnit
-    ) {
-      return current.comparePrice < best.comparePrice ? current : best;
-    }
-
-    return best;
+    const bestPPU = bestPerUnit(best);
+    const currPPU = bestPerUnit(current);
+    return currPPU < bestPPU ? current : best;
   });
 }
 

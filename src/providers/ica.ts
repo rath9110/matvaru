@@ -1,3 +1,4 @@
+import { RateLimiter } from "../rate-limiter.js";
 import type {
   NormalizedProduct,
   NormalizedSearchResult,
@@ -98,12 +99,14 @@ function normalizeIcaCategory(raw: Record<string, unknown>): NormalizedCategory 
 export class IcaProvider implements StoreProvider {
   readonly name = "ica" as const;
   private storeId: string;
+  private limiter = new RateLimiter(200);
 
   constructor(storeId = DEFAULT_STORE_ID) {
     this.storeId = storeId;
   }
 
   private async request(path: string): Promise<Response> {
+    await this.limiter.throttle();
     const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
     const response = await fetch(url, {
       headers: {

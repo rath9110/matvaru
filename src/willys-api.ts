@@ -1,4 +1,5 @@
 import { encryptCredential } from "./crypto.js";
+import { RateLimiter } from "./rate-limiter.js";
 import type {
   Customer,
   SearchResult,
@@ -12,6 +13,7 @@ const DEFAULT_STORE_ID = "2110";
 export class WillysApi {
   private cookies = new Map<string, string>();
   private csrfToken: string | null = null;
+  private limiter = new RateLimiter(150);
 
   /**
    * Make an HTTP request with cookie and CSRF token management.
@@ -20,6 +22,7 @@ export class WillysApi {
     path: string,
     options: RequestInit = {},
   ): Promise<Response> {
+    await this.limiter.throttle();
     const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
 
     const headers = new Headers(options.headers);

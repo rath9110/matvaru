@@ -4,6 +4,9 @@ export type { StoreProvider, StoreCredentials } from "./providers/index.js";
 export { WillysProvider, IcaProvider, CoopProvider, LidlProvider } from "./providers/index.js";
 export { findCheapestBasket } from "./basket.js";
 export type { BasketOptions, BasketComparison } from "./basket.js";
+export { RateLimiter } from "./rate-limiter.js";
+export { parseVolume, pricePerUnit } from "./volume.js";
+export type { ParsedVolume, CanonicalUnit } from "./volume.js";
 export type {
   // Normalized cross-store types
   StoreName,

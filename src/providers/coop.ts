@@ -1,3 +1,4 @@
+import { RateLimiter } from "../rate-limiter.js";
 import type {
   NormalizedProduct,
   NormalizedSearchResult,
@@ -94,12 +95,14 @@ function normalizeCoopCategory(raw: Record<string, unknown>): NormalizedCategory
 export class CoopProvider implements StoreProvider {
   readonly name = "coop" as const;
   private storeId: string;
+  private limiter = new RateLimiter(200);
 
   constructor(storeId = DEFAULT_STORE_ID) {
     this.storeId = storeId;
   }
 
   private async request(path: string): Promise<Response> {
+    await this.limiter.throttle();
     const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
     const response = await fetch(url, {
       headers: {

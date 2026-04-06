@@ -1,3 +1,4 @@
+import { RateLimiter } from "../rate-limiter.js";
 import type {
   NormalizedProduct,
   NormalizedSearchResult,
@@ -87,8 +88,10 @@ function normalizeOffer(o: LidlOffer): NormalizedProduct {
 
 export class LidlProvider implements StoreProvider {
   readonly name = "lidl" as const;
+  private limiter = new RateLimiter(200);
 
   private async request(path: string): Promise<Response> {
+    await this.limiter.throttle();
     const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
     const response = await fetch(url, {
       headers: {
