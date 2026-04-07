@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Billigaste matkorgen</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Billigaste matkorgen</h1>
+    <p class="subtitle">Klistra in din inköpslista — en vara per rad. Lägg till antal med t.ex. <code>2x mjölk</code> eller <code>ägg x6</code>.</p>
+
+    <div class="input-section">
+      <textarea
+        id="basket-input"
+        placeholder="2x mjölk 3%&#10;pasta fusilli&#10;ägg x6&#10;smör"
+        spellcheck="false"
+      ></textarea>
+      <button id="compare-btn" class="btn-compare">Hitta billigaste butik</button>
+    </div>
+
+    <div id="results"></div>
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
