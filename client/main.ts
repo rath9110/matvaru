@@ -118,10 +118,16 @@ function parseBasketInput(text: string): BasketItem[] {
 
 // ── API ────────────────────────────────────────────────────────────────────
 
+// Server injects window.__API_SECRET__ into the served HTML when API_SECRET is set.
+const apiSecret = (window as unknown as Record<string, unknown>).__API_SECRET__ as string | undefined;
+
 async function compare(items: BasketItem[]): Promise<BasketComparison> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiSecret) headers["Authorization"] = `Bearer ${apiSecret}`;
+
   const res = await fetch("/api/compare", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ items }),
   });
   if (!res.ok) {
