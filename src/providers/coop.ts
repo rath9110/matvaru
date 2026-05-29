@@ -2,93 +2,90 @@ import { RateLimiter } from "../rate-limiter.js";
 import type {
   NormalizedProduct,
   NormalizedSearchResult,
-  NormalizedCategory,
 } from "../types.js";
 import type { StoreProvider } from "./store-provider.js";
 
-// Coop e-commerce API (undocumented, reverse-engineered from coop.se/handla)
-// Endpoints may need updating if Coop changes their backend.
-const BASE_URL = "https://www.coop.se";
+// Coop ecommerce search — Loop54-backed personalization API used by coop.se/handla.
+// Verified against the live storefront 2026-05.
+const BASE_URL = "https://external.api.coop.se/personalization";
 
-// Default to Coop Online. Override via COOP_STORE_ID env var.
-const DEFAULT_STORE_ID = process.env.COOP_STORE_ID ?? "5080";
+// Public subscription key embedded in www.coop.se/handla; rotated occasionally.
+// If rotation happens, refresh from window.coopSettings.serviceAccess.hybrisApiSubscriptionKey.
+const SUBSCRIPTION_KEY =
+  process.env.COOP_SUBSCRIPTION_KEY ?? "3becf0ce306f41a1ae94077c16798187";
 
-interface CoopProductImage {
-  src: string;
-  [key: string]: unknown;
+// Default store: Coop Online (rikstäckande). The /handla page reports
+// defaultStoreId 251300 for non-localized sessions. Smaller numeric IDs (e.g.
+// 5080) are physical-store codes and return zero search results.
+const DEFAULT_STORE_ID = process.env.COOP_STORE_ID ?? "251300";
+
+interface CoopPriceData {
+  b2cPrice?: number;
+  b2bPrice?: number;
 }
 
-interface CoopPromotion {
-  title?: string;
-  description?: string;
-  splashText?: string;
-  newPrice?: number;
-  [key: string]: unknown;
+interface CoopComparativeUnit {
+  unit?: string;
+  text?: string;
 }
 
 interface CoopProduct {
   id?: string;
   ean?: string;
-  name: string;
+  name?: string;
   brand?: string;
   manufacturer?: string;
-  price: number;
-  priceUnit?: string;
-  comparePrice?: number;
-  comparePriceUnit?: string;
-  unitSize?: string;
-  displayVolume?: string;
-  image?: CoopProductImage;
-  images?: CoopProductImage[];
-  isAvailable?: boolean;
-  inStock?: boolean;
-  promotions?: CoopPromotion[];
-  offers?: CoopPromotion[];
+  imageUrl?: string;
+  salesPriceData?: CoopPriceData;
+  piecePriceData?: CoopPriceData;
+  comparativePriceData?: CoopPriceData;
+  comparativePriceUnit?: CoopComparativeUnit;
+  comparativePriceText?: string;
+  packageSize?: number | string;
+  packageSizeUnit?: string;
+  packageSizeInformation?: string;
+  salesUnit?: string;
+  availableOnline?: boolean;
+  promotion?: {
+    text?: string;
+    salesPriceData?: CoopPriceData;
+  };
   [key: string]: unknown;
 }
 
 interface CoopSearchResponse {
-  items?: CoopProduct[];
-  products?: CoopProduct[];
-  result?: CoopProduct[];
-  totalNumberOfResults?: number;
-  totalCount?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-function normalizeCoopProduct(p: CoopProduct): NormalizedProduct {
-  const id = p.id ?? p.ean ?? "";
-  const promotionList = [...(p.promotions ?? []), ...(p.offers ?? [])];
-  const promotions = promotionList.map((pr) => ({
-    description: pr.title ?? pr.description ?? pr.splashText ?? "",
-    discountedPrice: pr.newPrice ?? null,
-  }));
-
-  return {
-    id: String(id),
-    name: p.name,
-    brand: p.brand ?? p.manufacturer ?? "",
-    price: p.price,
-    comparePrice: p.comparePrice ?? 0,
-    comparePriceUnit: p.comparePriceUnit ?? p.priceUnit ?? "",
-    volume: p.displayVolume ?? p.unitSize ?? "",
-    imageUrl: p.image?.src ?? p.images?.[0]?.src ?? null,
-    inStock: p.isAvailable !== false && p.inStock !== false,
-    promotions,
-    store: "coop",
+  queryUsed?: string;
+  results?: {
+    count?: number;
+    items?: CoopProduct[];
   };
 }
 
-function normalizeCoopCategory(raw: Record<string, unknown>): NormalizedCategory {
-  const children = Array.isArray(raw.children)
-    ? (raw.children as Record<string, unknown>[]).map(normalizeCoopCategory)
+function normalizeCoopProduct(p: CoopProduct): NormalizedProduct {
+  // For weight-priced items Coop returns piecePriceData (per styck) AND
+  // salesPriceData (per kg). The pack price the customer pays is piecePriceData
+  // when present; otherwise fall back to salesPriceData.
+  const piece = p.piecePriceData?.b2cPrice;
+  const sales = p.salesPriceData?.b2cPrice ?? 0;
+  const price = piece && piece > 0 ? piece : sales;
+
+  const promotionPrice = p.promotion?.salesPriceData?.b2cPrice;
+  const promotions = promotionPrice && promotionPrice < price
+    ? [{ description: p.promotion?.text ?? "Erbjudande", discountedPrice: promotionPrice }]
     : [];
+
   return {
-    id: String(raw.id ?? raw.categoryCode ?? ""),
-    name: String(raw.name ?? raw.title ?? ""),
-    path: String(raw.url ?? raw.slug ?? ""),
-    children,
+    id: String(p.id ?? p.ean ?? ""),
+    name: p.name ?? "",
+    brand: p.brand ?? p.manufacturer ?? "",
+    price,
+    comparePrice: p.comparativePriceData?.b2cPrice ?? 0,
+    comparePriceUnit: p.comparativePriceUnit?.unit ?? "",
+    volume: p.packageSizeInformation ?? "",
+    imageUrl: p.imageUrl ?? null,
+    inStock: p.availableOnline !== false,
+    promotions,
+    store: "coop",
   };
 }
 
@@ -101,48 +98,41 @@ export class CoopProvider implements StoreProvider {
     this.storeId = storeId;
   }
 
-  private async request(path: string): Promise<Response> {
-    await this.limiter.throttle();
-    const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        "Accept-Language": "sv-SE",
-      },
-    });
-    return response;
-  }
-
   async search(query: string, page = 0, size = 30): Promise<NormalizedSearchResult> {
-    // Coop product search endpoint
-    // TODO: verify endpoint against live site if response shape changes
-    const params = new URLSearchParams({
+    await this.limiter.throttle();
+
+    const url =
+      `${BASE_URL}/search/products?api-version=v1` +
+      `&store=${encodeURIComponent(this.storeId)}` +
+      `&device=desktop&direct=false`;
+
+    const body = JSON.stringify({
       query,
-      page: String(page),
-      pageSize: String(size),
-      storeId: this.storeId,
+      resultsOptions: { skip: page * size, take: size },
     });
-    const response = await this.request(`/api/ecommerce/products/search?${params}`);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY,
+        "Content-Type": "application/json; charset=utf-8",
+        Accept: "application/json",
+        Origin: "https://www.coop.se",
+      },
+      body,
+    });
+
     if (!response.ok) {
       throw new Error(`Coop search failed: ${response.status}`);
     }
+
     const data = (await response.json()) as CoopSearchResponse;
-    const products = data.items ?? data.products ?? data.result ?? [];
+    const items = data.results?.items ?? [];
     return {
-      products: products.map(normalizeCoopProduct),
-      totalResults: data.totalNumberOfResults ?? data.totalCount ?? data.count ?? products.length,
+      products: items.map(normalizeCoopProduct),
+      totalResults: data.results?.count ?? items.length,
       page,
       pageSize: size,
     };
-  }
-
-  async getCategories(): Promise<NormalizedCategory[]> {
-    const response = await this.request(`/api/ecommerce/categories?storeId=${this.storeId}`);
-    if (!response.ok) {
-      throw new Error(`Coop categories failed: ${response.status}`);
-    }
-    const data = (await response.json()) as unknown;
-    const items = Array.isArray(data) ? data : [(data as Record<string, unknown>).categories ?? data];
-    return (items as Record<string, unknown>[]).map(normalizeCoopCategory);
   }
 }

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { WillysApi } from "./willys-api.js";
+import { CoopProvider, IcaProvider, LidlProvider } from "./providers/index.js";
 
 const username = process.env.WILLYS_USERNAME?.replace(/^"|"$/g, "") ?? "";
 const password = process.env.WILLYS_PASSWORD?.replace(/^"|"$/g, "") ?? "";
@@ -93,5 +94,35 @@ describe.skipIf(!hasCredentials)("Willys API Integration", { timeout: 30_000 }, 
     await api.clearCart();
     const count = await waitForCart(api, (n) => n === 0);
     expect(count).toBe(0);
+  });
+});
+
+describe("Coop provider live search", { timeout: 15_000 }, () => {
+  const provider = new CoopProvider();
+
+  it("returns products for a common Swedish query", async () => {
+    const result = await provider.search("banan", 0, 5);
+    expect(result.totalResults).toBeGreaterThan(0);
+    expect(result.products.length).toBeGreaterThan(0);
+
+    const first = result.products[0];
+    expect(first.name).toBeTruthy();
+    expect(first.id).toBeTruthy();
+    expect(first.price).toBeGreaterThan(0);
+    expect(first.store).toBe("coop");
+  });
+});
+
+describe("ICA and Lidl stubs", () => {
+  it("ICA returns an empty result without throwing", async () => {
+    const result = await new IcaProvider().search("mjölk");
+    expect(result.products).toEqual([]);
+    expect(result.totalResults).toBe(0);
+  });
+
+  it("Lidl returns an empty result without throwing", async () => {
+    const result = await new LidlProvider().search("mjölk");
+    expect(result.products).toEqual([]);
+    expect(result.totalResults).toBe(0);
   });
 });
